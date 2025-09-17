@@ -48,7 +48,10 @@ def _calculate_total_hours(start_iso: Optional[str], end_iso: Optional[str]) -> 
 
 def _row_to_work_session(row: sqlite3.Row) -> WorkSession:
     data = dict(row)
-    data.setdefault("total_hours", None)
+    if data.get("total_hours") is None and data.get("start_time") and data.get("end_time"):
+        data["total_hours"] = _calculate_total_hours(data.get("start_time"), data.get("end_time"))
+    else:
+        data.setdefault("total_hours", None)
     return WorkSession(**data)
 
 
