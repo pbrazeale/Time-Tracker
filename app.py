@@ -158,6 +158,17 @@ def _get_date_range(default_days: int = 7) -> tuple[date, date]:
 
 def render_reports() -> None:
     st.header("Reports")
+
+    if "reports_show_raw" not in st.session_state:
+        st.session_state["reports_show_raw"] = False
+
+    controls_col = st.columns([3, 1])
+    with controls_col[1]:
+        button_label = "Back to Chart" if st.session_state["reports_show_raw"] else "Settings"
+        if st.button(button_label, key="reports_settings_toggle"):
+            st.session_state["reports_show_raw"] = not st.session_state["reports_show_raw"]
+    show_raw = st.session_state["reports_show_raw"]
+
     start_date, end_date = _get_date_range()
 
     sessions = db.list_sessions_between(start_date, end_date)
@@ -180,16 +191,23 @@ def render_reports() -> None:
         chart_data["hour_total"] = chart_data["hours"].fillna(0)
         chart_data["session_label"] = chart_data["session_date"].dt.strftime("%b %d, %Y")
         st.subheader("Daily Hours Worked")
-        fig = px.bar(
-            chart_data,
-            x="session_label",
-            y="hour_total",
-            labels={"session_label": "Date", "hour_total": "Hours"},
-        )
-        fig.update_traces(width=1.0)
-        fig.update_layout(bargap=0.0)
-        fig.update_xaxes(type="category")
-        st.plotly_chart(fig, use_container_width=True)
+        if show_raw:
+            st.caption("Raw database view")
+            display_df = chart_data[["session_label", "hour_total"]].rename(
+                columns={"session_label": "Date", "hour_total": "Hours"}
+            )
+            st.dataframe(display_df, use_container_width=True)
+        else:
+            fig = px.bar(
+                chart_data,
+                x="session_label",
+                y="hour_total",
+                labels={"session_label": "Date", "hour_total": "Hours"},
+            )
+            fig.update_traces(width=1.0)
+            fig.update_layout(bargap=0.0)
+            fig.update_xaxes(type="category")
+            st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No work sessions in the selected range.")
 
