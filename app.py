@@ -177,8 +177,18 @@ def render_reports() -> None:
         df_sessions["hours"] = pd.to_numeric(df_sessions["hours"], errors="coerce")
         chart_data = df_sessions.groupby("session_date")["hours"].sum().reset_index()
         chart_data["session_date"] = pd.to_datetime(chart_data["session_date"])
+        chart_data["hour_total"] = chart_data["hours"].fillna(0)
+        chart_data["session_label"] = chart_data["session_date"].dt.strftime("%Y-%m-%d")
         st.subheader("Daily Hours Worked")
-        st.bar_chart(chart_data.set_index("session_date"))
+        fig = px.bar(
+            chart_data,
+            x="session_label",
+            y="hour_total",
+            labels={"session_label": "Date", "hour_total": "Hours"},
+        )
+        fig.update_traces(width=0.3)
+        fig.update_layout(bargap=0.0)
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No work sessions in the selected range.")
 
