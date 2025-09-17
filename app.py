@@ -227,14 +227,21 @@ def render_reports() -> None:
         per_category = df_entries.groupby("category")["hours"].sum().reset_index()
         days_in_range = max((end_date - start_date).days + 1, 1)
         per_category["average_daily_hours"] = per_category["hours"] / days_in_range
-        fig = px.pie(
-            per_category,
-            names="category",
-            values="average_daily_hours",
-            title="Average Daily Hours by Category",
-            color_discrete_sequence=px.colors.qualitative.Set2,
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        if show_raw:
+            st.caption("Raw database view")
+            display_categories = per_category[["category", "average_daily_hours"]].rename(
+                columns={"category": "Category", "average_daily_hours": "Avg Daily Hours"}
+            )
+            st.dataframe(display_categories, use_container_width=True)
+        else:
+            fig = px.pie(
+                per_category,
+                names="category",
+                values="average_daily_hours",
+                title="Average Daily Hours by Category",
+                color_discrete_sequence=px.colors.qualitative.Set2,
+            )
+            st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No project entries in the selected range for category chart.")
 
