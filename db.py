@@ -21,6 +21,7 @@ class WorkSession:
     start_time: str
     end_time: Optional[str]
     notes: Optional[str] = None
+    total_hours: Optional[float] = None
 
 
 @dataclass
@@ -31,6 +32,46 @@ class ProjectEntry:
     category: str
     start_time: str
     end_time: Optional[str]
+
+
+def _calculate_total_hours(start_iso: Optional[str], end_iso: Optional[str]) -> Optional[float]:
+    if not start_iso or not end_iso:
+        return None
+    try:
+        start_dt = datetime.fromisoformat(start_iso)
+        end_dt = datetime.fromisoformat(end_iso)
+    except ValueError:
+        return None
+    delta = end_dt - start_dt
+    return round(delta.total_seconds() / 3600, 2)
+
+
+def _row_to_work_session(row: sqlite3.Row) -> WorkSession:
+    data = dict(row)
+    data.setdefault("total_hours", None)
+    return WorkSession(**data)
+
+
+def _ensure_total_hours_column(conn: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(work_sessions)")}
+    if "total_hours" not in columns:
+        conn.execute("ALTER TABLE work_sessions ADD COLUMN total_hours REAL")
+    rows = conn.execute(
+        """
+        SELECT id, start_time, end_time
+        FROM work_sessions
+        WHERE start_time IS NOT NULL
+          AND end_time IS NOT NULL
+          AND total_hours IS NULL
+        """
+    ).fetchall()
+    for row in rows:
+        total_hours = _calculate_total_hours(row["start_time"], row["end_time"])
+        conn.execute(
+            "UPDATE work_sessions SET total_hours = ? WHERE id = ?",
+            (total_hours, row["id"]),
+        )
+
 
 
 def _connect() -> sqlite3.Connection:
@@ -60,7 +101,8 @@ def init_db() -> None:
                 session_date TEXT NOT NULL,
                 start_time TEXT NOT NULL,
                 end_time TEXT,
-                notes TEXT
+                notes TEXT,
+                total_hours REAL
             );
 
             CREATE TABLE IF NOT EXISTS project_entries (
@@ -80,6 +122,8 @@ def init_db() -> None:
             );
             """
         )
+
+        _ensure_total_hours_column(conn)
 
         existing = conn.execute("SELECT name FROM categories").fetchall()
         if not existing:
@@ -130,7 +174,7 @@ def get_active_session() -> Optional[WorkSession]:
             "SELECT * FROM work_sessions WHERE end_time IS NULL ORDER BY start_time DESC LIMIT 1"
         ).fetchone()
     if row:
-        return WorkSession(**row)
+        return _row_to_work_session(row)
     return None
 
 
@@ -144,15 +188,29 @@ def start_session(now: Optional[datetime] = None) -> WorkSession:
         row = conn.execute(
             "SELECT * FROM work_sessions WHERE id = last_insert_rowid()"
         ).fetchone()
-    return WorkSession(**row)
+    return _row_to_work_session(row)
 
 
 def end_session(session_id: int, end_time: Optional[datetime] = None) -> None:
     when = (end_time or datetime.now(CENTRAL_TZ)).isoformat()
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE work_sessions SET end_time = ? WHERE id = ?", (when, session_id)
-        )
+        row = conn.execute(
+            "SELECT start_time FROM work_sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        total_hours = None
+        if row:
+            total_hours = _calculate_total_hours(row["start_time"], when)
+            conn.execute(
+                "UPDATE work_sessions SET end_time = ?, total_hours = ? WHERE id = ?",
+                (when, total_hours, session_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE work_sessions SET end_time = ? WHERE id = ?",
+                (when, session_id),
+            )
+
 
 
 def get_active_project_entry(session_id: int | None = None) -> Optional[ProjectEntry]:
@@ -236,15 +294,17 @@ def update_session(
     end_time: Optional[str],
     notes: Optional[str] = None,
 ) -> None:
+    total_hours = _calculate_total_hours(start_time, end_time)
     with get_conn() as conn:
         conn.execute(
             """
             UPDATE work_sessions
-            SET session_date = ?, start_time = ?, end_time = ?, notes = ?
+            SET session_date = ?, start_time = ?, end_time = ?, notes = ?, total_hours = ?
             WHERE id = ?
             """,
-            (session_date, start_time, end_time, notes, session_id),
+            (session_date, start_time, end_time, notes, total_hours, session_id),
         )
+
 
 
 def delete_session(session_id: int) -> None:
@@ -283,7 +343,7 @@ def ensure_session_for_date(target_date: date) -> WorkSession:
             (target_date.isoformat(),),
         ).fetchone()
         if row:
-            return WorkSession(**row)
+            return _row_to_work_session(row)
         now = datetime.combine(target_date, datetime.min.time(), CENTRAL_TZ)
         conn.execute(
             "INSERT INTO work_sessions (session_date, start_time) VALUES (?, ?)",
@@ -292,7 +352,7 @@ def ensure_session_for_date(target_date: date) -> WorkSession:
         row = conn.execute(
             "SELECT * FROM work_sessions WHERE id = last_insert_rowid()"
         ).fetchone()
-    return WorkSession(**row)
+    return _row_to_work_session(row)
 
 
 def add_manual_project_entry(
