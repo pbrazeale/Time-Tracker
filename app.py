@@ -160,7 +160,7 @@ def render_reports() -> None:
     st.header("Reports")
 
     if "reports_view_mode" not in st.session_state:
-        st.session_state["reports_view_mode"] = "Chart"
+        st.session_state["reports_view_mode"] = "chart"
 
     controls_col = st.columns([3, 1])
     with controls_col[1]:
