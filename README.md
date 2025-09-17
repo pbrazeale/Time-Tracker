@@ -11,15 +11,21 @@ A local Streamlit application for tracking work time and categorizing project wo
 
 ## Getting Started
 1. Create a virtual environment (optional but recommended).
+    ```powershell
     python -m venv .venv
     source .venv/bin/activate  (On Windows: .venv\Scripts\activate)
+    ```
 
 2. Install dependencies.
+    ```powershell
     pip install -r requirements.txt
+    ```
 
 3. Launch the app.
+    ```powershell
     streamlit run app.py
-
+    ```
+    
 The SQLite database file (time_tracker.db) is created alongside the app on first run.
 
 ## Usage Notes
