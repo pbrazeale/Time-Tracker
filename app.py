@@ -160,10 +160,17 @@ def render_reports() -> None:
     df_sessions = pd.DataFrame(db.sessions_as_dicts(sessions))
 
     if not df_sessions.empty:
-        df_sessions["hours"] = df_sessions.apply(
-            lambda row: _format_duration_hours(row["start_time"], row["end_time"]),
-            axis=1,
-        )
+        if "total_hours" in df_sessions.columns:
+            df_sessions["hours"] = df_sessions["total_hours"]
+        else:
+            df_sessions["hours"] = None
+        missing_hours = df_sessions["hours"].isna()
+        if missing_hours.any():
+            df_sessions.loc[missing_hours, "hours"] = df_sessions.loc[missing_hours].apply(
+                lambda row: _format_duration_hours(row["start_time"], row["end_time"]),
+                axis=1,
+            )
+        df_sessions["hours"] = pd.to_numeric(df_sessions["hours"], errors="coerce")
         chart_data = df_sessions.groupby("session_date")["hours"].sum().reset_index()
         chart_data["session_date"] = pd.to_datetime(chart_data["session_date"])
         st.subheader("Daily Hours Worked")
