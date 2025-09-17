@@ -159,15 +159,19 @@ def _get_date_range(default_days: int = 7) -> tuple[date, date]:
 def render_reports() -> None:
     st.header("Reports")
 
-    if "reports_show_raw" not in st.session_state:
-        st.session_state["reports_show_raw"] = False
+    if "reports_view_mode" not in st.session_state:
+        st.session_state["reports_view_mode"] = "Chart"
 
     controls_col = st.columns([3, 1])
     with controls_col[1]:
-        button_label = "Back to Chart" if st.session_state["reports_show_raw"] else "Settings"
-        if st.button(button_label, key="reports_settings_toggle"):
-            st.session_state["reports_show_raw"] = not st.session_state["reports_show_raw"]
-    show_raw = st.session_state["reports_show_raw"]
+        view_mode = st.radio(
+            "View mode",
+            ["chart", "table"],
+            key="reports_view_mode",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+    show_raw = view_mode == "table"
 
     start_date, end_date = _get_date_range()
 
