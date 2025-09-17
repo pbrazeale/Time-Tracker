@@ -90,7 +90,11 @@ def render_tracker() -> None:
             with st.form("project_entry"):
                 project_name = st.text_input("Project name")
                 categories = db.get_categories()
-                category = st.selectbox("Category", categories)
+                if categories:
+                    default_index = categories.index("Programming") if "Programming" in categories else 0
+                    category = st.selectbox("Category", categories, index=default_index)
+                else:
+                    category = st.selectbox("Category", categories)
                 submitted = st.form_submit_button("Start Project Entry")
 
                 if submitted:
