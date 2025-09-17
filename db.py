@@ -31,7 +31,6 @@ class ProjectEntry:
     category: str
     start_time: str
     end_time: Optional[str]
-    notes: Optional[str] = None
 
 
 def _connect() -> sqlite3.Connection:
@@ -234,8 +233,7 @@ def update_session(
     session_id: int,
     session_date: str,
     start_time: str,
-    end_time: Optional[str]
-    notes: Optional[str] = None,
+    end_time: Optional[str],
     notes: Optional[str] = None,
 ) -> None:
     with get_conn() as conn:
@@ -259,8 +257,7 @@ def update_project_entry(
     project_name: str,
     category: str,
     start_time: str,
-    end_time: Optional[str]
-    notes: Optional[str] = None,
+    end_time: Optional[str],
 ) -> None:
     with get_conn() as conn:
         conn.execute(
@@ -303,8 +300,7 @@ def add_manual_project_entry(
     project_name: str,
     category: str,
     start_time: str,
-    end_time: Optional[str]
-    notes: Optional[str] = None,
+    end_time: Optional[str],
 ) -> ProjectEntry:
     with get_conn() as conn:
         conn.execute(
