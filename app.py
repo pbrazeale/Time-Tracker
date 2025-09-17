@@ -47,12 +47,12 @@ def render_tracker() -> None:
             if st.button("Stop Day", type="primary"):
                 db.end_session(active_session.id)
                 st.toast("Day stopped")
-                st.experimental_rerun()
+                st.rerun()
         else:
             if st.button("Start Day", type="primary"):
                 db.start_session()
                 st.toast("New workday started")
-                st.experimental_rerun()
+                st.rerun()
 
     with col2:
         if active_session:
@@ -85,7 +85,7 @@ def render_tracker() -> None:
             if st.button("Stop Project Entry"):
                 db.end_project_entry(active_entry.id)
                 st.toast("Project entry stopped")
-                st.experimental_rerun()
+                st.rerun()
         else:
             with st.form("project_entry"):
                 project_name = st.text_input("Project name")
@@ -103,7 +103,7 @@ def render_tracker() -> None:
                             category=category,
                         )
                         st.toast("Project tracking started")
-                        st.experimental_rerun()
+                        st.rerun()
     else:
         st.info("Start your day to begin logging project time.")
 
@@ -217,7 +217,7 @@ def render_admin() -> None:
             else:
                 db.add_category(new_category.strip())
                 st.toast("Category added")
-                st.experimental_rerun()
+                st.rerun()
 
     with col2:
         if categories_all:
@@ -228,12 +228,12 @@ def render_admin() -> None:
                 if st.button("Deactivate", key="deactivate_category"):
                     db.set_category_active(selected_category, False)
                     st.toast("Category deactivated")
-                    st.experimental_rerun()
+                    st.rerun()
             else:
                 if st.button("Activate", key="activate_category"):
                     db.set_category_active(selected_category, True)
                     st.toast("Category activated")
-                    st.experimental_rerun()
+                    st.rerun()
             new_name = st.text_input("Rename category", value=selected_category)
             if st.button("Rename", key="rename_category_btn"):
                 if not new_name.strip():
@@ -241,7 +241,7 @@ def render_admin() -> None:
                 elif new_name.strip() != selected_category:
                     db.rename_category(selected_category, new_name.strip())
                     st.toast("Category renamed")
-                    st.experimental_rerun()
+                    st.rerun()
         else:
             st.info("No categories found.")
 
@@ -295,11 +295,11 @@ def render_admin() -> None:
                         notes=notes_val or None,
                     )
                     st.toast("Session updated")
-                    st.experimental_rerun()
+                    st.rerun()
             if st.button("Delete Session", key=f"delete_session_{row['id']}"):
                 db.delete_session(row["id"])
                 st.toast("Session deleted")
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.info("No sessions recorded yet.")
 
@@ -360,11 +360,11 @@ def render_admin() -> None:
                         end_time=end_iso,
                     )
                     st.toast("Entry updated")
-                    st.experimental_rerun()
+                    st.rerun()
             if st.button("Delete Entry", key=f"delete_entry_{row['id']}"):
                 db.delete_project_entry(row["id"])
                 st.toast("Entry deleted")
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.info("No project entries recorded yet.")
 
@@ -412,7 +412,7 @@ def render_admin() -> None:
                     end_time=end_iso,
                 )
                 st.toast("Manual entry added")
-                st.experimental_rerun()
+                st.rerun()
 
 
 def main() -> None:
