@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Optional
 
+import re
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -31,6 +33,41 @@ def _format_duration_hours(start_iso: str, end_iso: Optional[str]) -> float:
         return 0.0
     delta = end_dt - start_dt
     return round(delta.total_seconds() / 3600, 2)
+
+
+def _format_time_value(value: Optional[time]) -> str:
+    base = (value or time(hour=0, minute=0)).replace(second=0, microsecond=0)
+    return base.strftime("%H:%M")
+
+
+_TIME_INPUT_PATTERN = re.compile(r"^\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$")
+
+
+def _time_text_input(label: str, default: Optional[time] = None, *, key: Optional[str] = None) -> str:
+    return st.text_input(label, value=_format_time_value(default), key=key)
+
+
+
+def _parse_time_text(raw: str) -> time:
+    match = _TIME_INPUT_PATTERN.match(raw.strip())
+    if not match:
+        raise ValueError
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    second_text = match.group(3)
+    if not (0 <= hour < 24 and 0 <= minute < 60):
+        raise ValueError
+    if second_text and int(second_text) != 0:
+        raise ValueError
+    return time(hour=hour, minute=minute)
+
+
+
+def _time_from_datetime(value: Optional[datetime]) -> Optional[time]:
+    if not value:
+        return None
+    localized = value.astimezone(db.CENTRAL_TZ) if value.tzinfo else value
+    return localized.timetz().replace(tzinfo=None, second=0, microsecond=0)
 
 
 def render_tracker() -> None:
@@ -316,28 +353,31 @@ def render_admin() -> None:
             with st.form(f"session_edit_{row['id']}"):
                 base_date = start_dt.date() if start_dt else _now().date()
                 edit_date = st.date_input("Session date", value=base_date)
-                start_time_val = st.time_input(
+                start_time_raw = _time_text_input(
                     "Start time",
-                    value=(start_dt.timetz().replace(tzinfo=None) if start_dt else time()),
+                    default=_time_from_datetime(start_dt),
+                    key=f"session_start_time_{row['id']}",
                 )
                 running = end_dt is None
                 running = st.checkbox("Session in progress", value=running)
+                end_time_raw: Optional[str] = None
                 if not running:
-                    end_time_val = st.time_input(
+                    end_time_raw = _time_text_input(
                         "End time",
-                        value=(
-                            end_dt.timetz().replace(tzinfo=None)
-                            if end_dt
-                            else start_time_val
-                        ),
+                        default=_time_from_datetime(end_dt) or _time_from_datetime(start_dt),
+                        key=f"session_end_time_{row['id']}",
                     )
                 notes_val = st.text_area("Notes", value=row.get("notes") or "")
                 submitted = st.form_submit_button("Update Session")
                 if submitted:
+                    try:
+                        start_time_val = _parse_time_text(start_time_raw)
+                        end_time_val = _parse_time_text(end_time_raw) if not running else None
+                    except ValueError:
+                        st.error("Time must be in HH:MM format.")
+                        st.stop()
                     start_iso = _combine_date_time(edit_date, start_time_val)
-                    end_iso = None
-                    if not running:
-                        end_iso = _combine_date_time(edit_date, end_time_val)
+                    end_iso = None if running else _combine_date_time(edit_date, end_time_val)
                     db.update_session(
                         session_id=row["id"],
                         session_date=edit_date.isoformat(),
@@ -384,23 +424,28 @@ def render_admin() -> None:
                 entry_date = (
                     start_dt.date() if start_dt else _now().date()
                 )
-                start_time_val = st.time_input(
+                start_time_raw = _time_text_input(
                     "Start time",
-                    value=(start_dt.timetz().replace(tzinfo=None) if start_dt else time()),
+                    default=_time_from_datetime(start_dt),
+                    key=f"entry_start_time_{row['id']}",
                 )
                 running = end_dt is None
                 running = st.checkbox("Entry in progress", value=running)
+                end_time_raw: Optional[str] = None
                 if not running:
-                    end_time_val = st.time_input(
+                    end_time_raw = _time_text_input(
                         "End time",
-                        value=(
-                            end_dt.timetz().replace(tzinfo=None)
-                            if end_dt
-                            else start_time_val
-                        ),
+                        default=_time_from_datetime(end_dt) or _time_from_datetime(start_dt),
+                        key=f"entry_end_time_{row['id']}",
                     )
                 submitted = st.form_submit_button("Update Entry")
                 if submitted:
+                    try:
+                        start_time_val = _parse_time_text(start_time_raw)
+                        end_time_val = _parse_time_text(end_time_raw) if not running else None
+                    except ValueError:
+                        st.error("Time must be in HH:MM format.")
+                        st.stop()
                     start_iso = _combine_date_time(entry_date, start_time_val)
                     end_iso = None if running else _combine_date_time(entry_date, end_time_val)
                     db.update_project_entry(
@@ -437,19 +482,26 @@ def render_admin() -> None:
             "Category", categories_for_manual, key="manual_category"
         )
         entry_date = st.date_input("Entry date", value=_now().date())
-        start_time_val = st.time_input(
-            "Start", value=time(hour=9, minute=0), key="manual_start_time"
+        start_time_raw = _time_text_input(
+            "Start", default=time(hour=9, minute=0), key="manual_start_time"
         )
         ended = st.checkbox("Set end time", value=True, key="manual_end_checkbox")
+        end_time_raw: Optional[str] = None
         if ended:
-            end_time_val = st.time_input(
-                "End", value=time(hour=17, minute=0), key="manual_end_time"
+            end_time_raw = _time_text_input(
+                "End", default=time(hour=17, minute=0), key="manual_end_time"
             )
         submitted = st.form_submit_button("Add Entry")
         if submitted:
             if not project_name.strip():
                 st.warning("Project name is required")
             else:
+                try:
+                    start_time_val = _parse_time_text(start_time_raw)
+                    end_time_val = _parse_time_text(end_time_raw) if ended else None
+                except ValueError:
+                    st.error("Time must be in HH:MM format.")
+                    st.stop()
                 session_id = session_map[selected_session_label]["id"]
                 start_iso = _combine_date_time(entry_date, start_time_val)
                 end_iso = None
