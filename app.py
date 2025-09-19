@@ -245,8 +245,8 @@ def render_reports() -> None:
                 y="hour_total",
                 labels={"session_label": "Date", "hour_total": "Hours"},
             )
-            fig.update_traces(width=1.0)
-            fig.update_layout(bargap=0.0)
+            fig.update_traces(width=0.6)
+            fig.update_layout(bargap=0.25)
             fig.update_xaxes(type="category")
             st.plotly_chart(fig, use_container_width=True)
     else:
