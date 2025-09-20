@@ -2,6 +2,10 @@
 
 A self-hosted Streamlit application for capturing work sessions, tracking project time, and exploring reports backed by a local SQLite database. The app is tuned for Central Time (America/Chicago) and keeps your data on your machine.
 
+## Demo
+
+![Time Tracker Demo](https://pbrazeale.github.io/images/time_tracker.gif)
+
 ## Highlights
 
 - **Workday control** start or stop a session with a single click and the app records CST timestamps plus total hours worked.
