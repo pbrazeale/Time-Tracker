@@ -10,6 +10,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import services
+
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
