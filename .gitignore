@@ -2,3 +2,5 @@
 time_tracker.db
 *.db
 __pycache__/
+.stignore
+.stfolder
