@@ -12,7 +12,68 @@ import streamlit as st
 import db
 
 
-st.set_page_config(page_title="Time Tracker", layout="wide")
+PRIMARY_RED = "#c62828"
+ACCENT_BLUE = "#1e3a8a"
+ROYAL_PURPLE = "#7b1fa2"
+LIGHT_TEXT = "#f5f5f7"
+CATEGORY_COLORS = [
+    PRIMARY_RED,
+    ACCENT_BLUE,
+    ROYAL_PURPLE,
+    "#ff7043",
+    "#2563eb",
+    "#a855f7",
+]
+
+THEME_STYLE = f"""
+<style>
+:root {{
+    --primary-red: {{PRIMARY_RED}};
+    --accent-blue: {{ACCENT_BLUE}};
+    --royal-purple: {{ROYAL_PURPLE}};
+    --text-light: {{LIGHT_TEXT}};
+}}
+
+[data-testid="stSidebar"] {{
+    background: linear-gradient(180deg, rgba(30, 63, 128, 0.96), rgba(123, 31, 162, 0.88));
+}}
+
+[data-testid="stSidebar"] * {{
+    color: var(--text-light) !important;
+}}
+
+.sidebar-app-title {{
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin: 0.5rem 0 0.75rem;
+    letter-spacing: 0.03em;
+}}
+
+.sidebar-divider {{
+    height: 1px;
+    margin: 0.75rem 0 1.25rem;
+    background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+}}
+</style>
+"""
+
+st.set_page_config(
+    page_title="Time Tracker",
+    layout="wide",
+    page_icon="time_tracker_logo_300.jpg",
+)
+
+st.sidebar.image("time_tracker_logo_300.jpg", use_column_width=True)
+st.sidebar.markdown(
+    "<div class='sidebar-app-title'>Time Tracker</div>"
+    "<div class='sidebar-divider'></div>",
+    unsafe_allow_html=True,
+)
+
+st.markdown(THEME_STYLE, unsafe_allow_html=True)
+
+
 db.init_db()
 
 
@@ -177,9 +238,10 @@ def render_tracker() -> None:
     else:
         st.write("No project entries logged yet today.")
 
-def _get_date_range(default_days: int = 7) -> tuple[date, date]:
+def _get_date_range() -> tuple[date, date]:
     end_date = _now().date()
-    start_date = end_date - timedelta(days=default_days - 1)
+    days_since_sunday = (end_date.weekday() + 1) % 7
+    start_date = end_date - timedelta(days=days_since_sunday)
     col1, col2 = st.columns(2)
     with col1:
         selected_start = st.date_input("Start date", value=start_date)
@@ -232,6 +294,8 @@ def render_reports() -> None:
         chart_data["hour_total"] = chart_data["hours"].fillna(0)
         chart_data["session_label"] = chart_data["session_date"].dt.strftime("%b %d, %Y")
         st.subheader("Daily Hours Worked")
+        total_hours = chart_data["hour_total"].fillna(0).sum()
+        st.write(f"Total Hours: {total_hours:.2f}")
         if show_raw:
             st.caption("Raw database view")
             display_df = chart_data[["session_label", "hour_total"]].rename(
@@ -245,9 +309,28 @@ def render_reports() -> None:
                 y="hour_total",
                 labels={"session_label": "Date", "hour_total": "Hours"},
             )
-            fig.update_traces(width=0.6)
-            fig.update_layout(bargap=0.25)
-            fig.update_xaxes(type="category")
+            fig.update_traces(
+                width=0.6,
+                marker_color=PRIMARY_RED,
+                marker_line_color=ACCENT_BLUE,
+                marker_line_width=1.5,
+            )
+            fig.update_layout(
+                bargap=0.25,
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font_color=LIGHT_TEXT,
+            )
+            fig.update_xaxes(
+                type="category",
+                linecolor=ACCENT_BLUE,
+                tickfont=dict(color=LIGHT_TEXT),
+            )
+            fig.update_yaxes(
+                gridcolor="rgba(30, 63, 128, 0.35)",
+                zerolinecolor="rgba(123, 31, 162, 0.3)",
+                tickfont=dict(color=LIGHT_TEXT),
+            )
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No work sessions in the selected range.")
@@ -256,27 +339,50 @@ def render_reports() -> None:
 
     entries = db.list_project_entries_between(start_date, end_date)
     df_entries = pd.DataFrame(db.entries_as_dicts(entries))
+    st.subheader("Work Categories")
     if not df_entries.empty:
         df_entries["hours"] = df_entries.apply(
             lambda row: _format_duration_hours(row["start_time"], row["end_time"]),
             axis=1,
         )
         per_category = df_entries.groupby("category")["hours"].sum().reset_index()
-        days_in_range = max((end_date - start_date).days + 1, 1)
-        per_category["average_daily_hours"] = per_category["hours"] / days_in_range
+        per_category["hours"] = pd.to_numeric(per_category["hours"], errors="coerce").fillna(0.0)
+        total_category_hours = float(per_category["hours"].sum())
+        if total_category_hours:
+            per_category["percent"] = per_category["hours"] / total_category_hours
+        else:
+            per_category["percent"] = 0.0
+        per_category["legend_label"] = [
+            f"{category} ({percent * 100:.1f}%)"
+            for category, percent in zip(per_category["category"], per_category["percent"])
+        ]
         if show_raw:
             st.caption("Raw database view")
-            display_categories = per_category[["category", "average_daily_hours"]].rename(
-                columns={"category": "Category", "average_daily_hours": "Avg Daily Hours"}
+            display_categories = per_category[["category", "hours"]].rename(
+                columns={"category": "Category", "hours": "Hours"}
             )
+            display_categories.loc[:, "Hours"] = display_categories["Hours"].round(2)
             st.dataframe(display_categories, use_container_width=True)
         else:
             fig = px.pie(
                 per_category,
-                names="category",
-                values="average_daily_hours",
-                title="Average Daily Hours by Category",
-                color_discrete_sequence=px.colors.qualitative.Set2,
+                names="legend_label",
+                values="hours",
+                color_discrete_sequence=CATEGORY_COLORS,
+            )
+            fig.update_traces(
+                customdata=per_category[["category", "percent"]].values,
+                hovertemplate="<b>%{customdata[0]}</b><br>Hours: %{value:.2f}<br>Share: %{customdata[1]:.1%}",
+                textinfo="percent",
+                textposition="inside",
+            )
+            fig.update_layout(
+                showlegend=True,
+                legend_title_text="Category",
+                legend_font_color=LIGHT_TEXT,
+                legend_bgcolor="rgba(11, 17, 34, 0.6)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font_color=LIGHT_TEXT,
             )
             st.plotly_chart(fig, use_container_width=True)
     else:
