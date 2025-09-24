@@ -177,9 +177,10 @@ def render_tracker() -> None:
     else:
         st.write("No project entries logged yet today.")
 
-def _get_date_range(default_days: int = 7) -> tuple[date, date]:
+def _get_date_range() -> tuple[date, date]:
     end_date = _now().date()
-    start_date = end_date - timedelta(days=default_days - 1)
+    days_since_sunday = (end_date.weekday() + 1) % 7
+    start_date = end_date - timedelta(days=days_since_sunday)
     col1, col2 = st.columns(2)
     with col1:
         selected_start = st.date_input("Start date", value=start_date)
@@ -232,6 +233,8 @@ def render_reports() -> None:
         chart_data["hour_total"] = chart_data["hours"].fillna(0)
         chart_data["session_label"] = chart_data["session_date"].dt.strftime("%b %d, %Y")
         st.subheader("Daily Hours Worked")
+        total_hours = chart_data["hour_total"].fillna(0).sum()
+        st.write(f"Total Hours: {total_hours:.2f}")
         if show_raw:
             st.caption("Raw database view")
             display_df = chart_data[["session_label", "hour_total"]].rename(
