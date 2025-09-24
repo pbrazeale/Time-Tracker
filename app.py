@@ -34,16 +34,6 @@ THEME_STYLE = f"""
     --text-light: {{LIGHT_TEXT}};
 }}
 
-[data-testid="stAppViewContainer"] {{
-    background: radial-gradient(circle at top, rgba(198, 40, 40, 0.92), rgba(11, 17, 34, 0.98));
-    color: var(--text-light);
-}}
-
-[data-testid="stHeader"] {{
-    background: rgba(7, 10, 18, 0.85);
-    border-bottom: 1px solid var(--accent-blue);
-}}
-
 [data-testid="stSidebar"] {{
     background: linear-gradient(180deg, rgba(30, 63, 128, 0.96), rgba(123, 31, 162, 0.88));
 }}
@@ -64,57 +54,6 @@ THEME_STYLE = f"""
     height: 1px;
     margin: 0.75rem 0 1.25rem;
     background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
-}}
-
-.stButton>button, .stDownloadButton>button {{
-    background-color: var(--primary-red);
-    color: #ffffff;
-    border: 1px solid rgba(37, 99, 235, 0.55);
-    border-radius: 6px;
-    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}}
-
-.stButton>button:hover, .stDownloadButton>button:hover {{
-    background-color: var(--royal-purple);
-    border-color: var(--royal-purple);
-    transform: translateY(-1px);
-}}
-
-.stButton>button:focus, .stDownloadButton>button:focus {{
-    box-shadow: 0 0 0 0.2rem rgba(123, 31, 162, 0.35);
-    outline: none;
-}}
-
-h1, h2, h3, h4 {{
-    color: var(--accent-blue);
-}}
-
-h1 {{
-    text-shadow: 0 0 12px rgba(198, 40, 40, 0.45);
-}}
-
-h2 {{
-    border-left: 4px solid var(--primary-red);
-    padding-left: 0.6rem;
-    margin-top: 0.75rem;
-}}
-
-[data-testid="stMetricLabel"], [data-testid="stMetricValue"] {{
-    color: var(--text-light) !important;
-}}
-
-[data-testid="stDataFrame"] div[data-testid="styled-table"] {{
-    background-color: rgba(30, 63, 128, 0.08);
-    border-radius: 6px;
-}}
-
-div[data-testid="stAlert"] {{
-    border-radius: 8px;
-    border-left: 4px solid var(--royal-purple);
-}}
-
-.stTabs [data-baseweb="tab-list"] button[role="tab"] {{
-    color: var(--text-light);
 }}
 </style>
 """
