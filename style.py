@@ -57,7 +57,7 @@ def apply_theme() -> None:
         layout="wide",
         page_icon=LOGO_PATH,
     )
-    st.sidebar.image(LOGO_PATH, use_column_width=True)
+    st.sidebar.image(LOGO_PATH, use_container_width=True)
     st.sidebar.markdown(
         f"<div class='sidebar-app-title'>{APP_TITLE}</div>"
         "<div class='sidebar-divider'></div>",
