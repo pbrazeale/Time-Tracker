@@ -12,7 +12,129 @@ import streamlit as st
 import db
 
 
-st.set_page_config(page_title="Time Tracker", layout="wide")
+PRIMARY_RED = "#c62828"
+ACCENT_BLUE = "#1e3a8a"
+ROYAL_PURPLE = "#7b1fa2"
+LIGHT_TEXT = "#f5f5f7"
+CATEGORY_COLORS = [
+    PRIMARY_RED,
+    ACCENT_BLUE,
+    ROYAL_PURPLE,
+    "#ff7043",
+    "#2563eb",
+    "#a855f7",
+]
+
+THEME_STYLE = f"""
+<style>
+:root {{
+    --primary-red: {{PRIMARY_RED}};
+    --accent-blue: {{ACCENT_BLUE}};
+    --royal-purple: {{ROYAL_PURPLE}};
+    --text-light: {{LIGHT_TEXT}};
+}}
+
+[data-testid="stAppViewContainer"] {{
+    background: radial-gradient(circle at top, rgba(198, 40, 40, 0.92), rgba(11, 17, 34, 0.98));
+    color: var(--text-light);
+}}
+
+[data-testid="stHeader"] {{
+    background: rgba(7, 10, 18, 0.85);
+    border-bottom: 1px solid var(--accent-blue);
+}}
+
+[data-testid="stSidebar"] {{
+    background: linear-gradient(180deg, rgba(30, 63, 128, 0.96), rgba(123, 31, 162, 0.88));
+}}
+
+[data-testid="stSidebar"] * {{
+    color: var(--text-light) !important;
+}}
+
+.sidebar-app-title {{
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin: 0.5rem 0 0.75rem;
+    letter-spacing: 0.03em;
+}}
+
+.sidebar-divider {{
+    height: 1px;
+    margin: 0.75rem 0 1.25rem;
+    background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+}}
+
+.stButton>button, .stDownloadButton>button {{
+    background-color: var(--primary-red);
+    color: #ffffff;
+    border: 1px solid rgba(37, 99, 235, 0.55);
+    border-radius: 6px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}}
+
+.stButton>button:hover, .stDownloadButton>button:hover {{
+    background-color: var(--royal-purple);
+    border-color: var(--royal-purple);
+    transform: translateY(-1px);
+}}
+
+.stButton>button:focus, .stDownloadButton>button:focus {{
+    box-shadow: 0 0 0 0.2rem rgba(123, 31, 162, 0.35);
+    outline: none;
+}}
+
+h1, h2, h3, h4 {{
+    color: var(--accent-blue);
+}}
+
+h1 {{
+    text-shadow: 0 0 12px rgba(198, 40, 40, 0.45);
+}}
+
+h2 {{
+    border-left: 4px solid var(--primary-red);
+    padding-left: 0.6rem;
+    margin-top: 0.75rem;
+}}
+
+[data-testid="stMetricLabel"], [data-testid="stMetricValue"] {{
+    color: var(--text-light) !important;
+}}
+
+[data-testid="stDataFrame"] div[data-testid="styled-table"] {{
+    background-color: rgba(30, 63, 128, 0.08);
+    border-radius: 6px;
+}}
+
+div[data-testid="stAlert"] {{
+    border-radius: 8px;
+    border-left: 4px solid var(--royal-purple);
+}}
+
+.stTabs [data-baseweb="tab-list"] button[role="tab"] {{
+    color: var(--text-light);
+}}
+</style>
+"""
+
+st.set_page_config(
+    page_title="Time Tracker",
+    layout="wide",
+    page_icon="time_tracker_logo_300.jpg",
+)
+
+st.sidebar.image("time_tracker_logo_300.jpg", use_column_width=True)
+st.sidebar.markdown(
+    "<div class='sidebar-app-title'>Time Tracker</div>"
+    "<div class='sidebar-divider'></div>",
+    unsafe_allow_html=True,
+)
+
+st.markdown(THEME_STYLE, unsafe_allow_html=True)
+
+
 db.init_db()
 
 
@@ -248,9 +370,28 @@ def render_reports() -> None:
                 y="hour_total",
                 labels={"session_label": "Date", "hour_total": "Hours"},
             )
-            fig.update_traces(width=0.6)
-            fig.update_layout(bargap=0.25)
-            fig.update_xaxes(type="category")
+            fig.update_traces(
+                width=0.6,
+                marker_color=PRIMARY_RED,
+                marker_line_color=ACCENT_BLUE,
+                marker_line_width=1.5,
+            )
+            fig.update_layout(
+                bargap=0.25,
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font_color=LIGHT_TEXT,
+            )
+            fig.update_xaxes(
+                type="category",
+                linecolor=ACCENT_BLUE,
+                tickfont=dict(color=LIGHT_TEXT),
+            )
+            fig.update_yaxes(
+                gridcolor="rgba(30, 63, 128, 0.35)",
+                zerolinecolor="rgba(123, 31, 162, 0.3)",
+                tickfont=dict(color=LIGHT_TEXT),
+            )
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No work sessions in the selected range.")
@@ -268,9 +409,14 @@ def render_reports() -> None:
         per_category = df_entries.groupby("category")["hours"].sum().reset_index()
         per_category["hours"] = pd.to_numeric(per_category["hours"], errors="coerce").fillna(0.0)
         total_category_hours = float(per_category["hours"].sum())
-        per_category["percent"] = (
-            per_category["hours"] / total_category_hours if total_category_hours else 0.0
-        )
+        if total_category_hours:
+            per_category["percent"] = per_category["hours"] / total_category_hours
+        else:
+            per_category["percent"] = 0.0
+        per_category["legend_label"] = [
+            f"{category} ({percent * 100:.1f}%)"
+            for category, percent in zip(per_category["category"], per_category["percent"])
+        ]
         if show_raw:
             st.caption("Raw database view")
             display_categories = per_category[["category", "hours"]].rename(
@@ -279,25 +425,26 @@ def render_reports() -> None:
             display_categories.loc[:, "Hours"] = display_categories["Hours"].round(2)
             st.dataframe(display_categories, use_container_width=True)
         else:
-            legend_labels = [
-                f"{category} ({percent * 100:.1f}%)"
-                for category, percent in zip(per_category["category"], per_category["percent"])
-            ]
             fig = px.pie(
                 per_category,
-                names="category",
+                names="legend_label",
                 values="hours",
-                color_discrete_sequence=px.colors.qualitative.Set2,
+                color_discrete_sequence=CATEGORY_COLORS,
             )
             fig.update_traces(
-                customdata=per_category[["category"]].values,
-                hovertemplate="<b>%{customdata[0]}</b><br>Hours: %{value:.2f}<br>%{percent}",
+                customdata=per_category[["category", "percent"]].values,
+                hovertemplate="<b>%{customdata[0]}</b><br>Hours: %{value:.2f}<br>Share: %{customdata[1]:.1%}",
                 textinfo="percent",
                 textposition="inside",
             )
-            if fig.data:
-                fig.data[0].labels = legend_labels
-            fig.update_layout(showlegend=True)
+            fig.update_layout(
+                showlegend=True,
+                legend_title_text="Category",
+                legend_font_color=LIGHT_TEXT,
+                legend_bgcolor="rgba(11, 17, 34, 0.6)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font_color=LIGHT_TEXT,
+            )
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No project entries in the selected range for category chart.")
