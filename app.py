@@ -259,28 +259,45 @@ def render_reports() -> None:
 
     entries = db.list_project_entries_between(start_date, end_date)
     df_entries = pd.DataFrame(db.entries_as_dicts(entries))
+    st.subheader("Work Categories")
     if not df_entries.empty:
         df_entries["hours"] = df_entries.apply(
             lambda row: _format_duration_hours(row["start_time"], row["end_time"]),
             axis=1,
         )
         per_category = df_entries.groupby("category")["hours"].sum().reset_index()
-        days_in_range = max((end_date - start_date).days + 1, 1)
-        per_category["average_daily_hours"] = per_category["hours"] / days_in_range
+        per_category["hours"] = pd.to_numeric(per_category["hours"], errors="coerce").fillna(0.0)
+        total_category_hours = float(per_category["hours"].sum())
+        per_category["percent"] = (
+            per_category["hours"] / total_category_hours if total_category_hours else 0.0
+        )
         if show_raw:
             st.caption("Raw database view")
-            display_categories = per_category[["category", "average_daily_hours"]].rename(
-                columns={"category": "Category", "average_daily_hours": "Avg Daily Hours"}
+            display_categories = per_category[["category", "hours"]].rename(
+                columns={"category": "Category", "hours": "Hours"}
             )
+            display_categories.loc[:, "Hours"] = display_categories["Hours"].round(2)
             st.dataframe(display_categories, use_container_width=True)
         else:
+            legend_labels = [
+                f"{category} ({percent * 100:.1f}%)"
+                for category, percent in zip(per_category["category"], per_category["percent"])
+            ]
             fig = px.pie(
                 per_category,
                 names="category",
-                values="average_daily_hours",
-                title="Average Daily Hours by Category",
+                values="hours",
                 color_discrete_sequence=px.colors.qualitative.Set2,
             )
+            fig.update_traces(
+                customdata=per_category[["category"]].values,
+                hovertemplate="<b>%{customdata[0]}</b><br>Hours: %{value:.2f}<br>%{percent}",
+                textinfo="percent",
+                textposition="inside",
+            )
+            if fig.data:
+                fig.data[0].labels = legend_labels
+            fig.update_layout(showlegend=True)
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No project entries in the selected range for category chart.")
