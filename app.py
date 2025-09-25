@@ -336,6 +336,105 @@ def render_admin() -> None:
     if entries:
         df_entries = pd.DataFrame(entries)
         st.dataframe(df_entries, use_container_width=True)
+        entry_map = {
+            f"#{row['id']} - {row['project_name']} ({row['category']}) @ "
+            f"{services.parse_iso(row['start_time']).strftime('%Y-%m-%d %H:%M') if row.get('start_time') else 'N/A'}": row
+            for row in entries
+        }
+        selected_entry_label = st.selectbox(
+            "Select project entry to edit",
+            [""] + list(entry_map.keys()),
+            key="project_entry_select",
+        )
+        if selected_entry_label:
+            entry = entry_map[selected_entry_label]
+            start_dt = services.parse_iso(entry["start_time"])
+            end_dt = services.parse_iso(entry["end_time"])
+            categories_for_edit = services.get_categories(include_inactive=True)
+            if entry["category"] not in categories_for_edit:
+                categories_for_edit = [entry["category"]] + [
+                    category
+                    for category in categories_for_edit
+                    if category != entry["category"]
+                ]
+            category_index = categories_for_edit.index(entry["category"])
+            with st.form(f"project_entry_edit_{entry['id']}"):
+                project_name_val = st.text_input(
+                    "Project name",
+                    value=entry["project_name"],
+                    key=f"project_name_{entry['id']}",
+                )
+                category_val = st.selectbox(
+                    "Category",
+                    categories_for_edit,
+                    index=category_index,
+                    key=f"project_category_{entry['id']}",
+                )
+                base_date = start_dt.date() if start_dt else services.current_time().date()
+                entry_date_val = st.date_input(
+                    "Entry date",
+                    value=base_date,
+                    key=f"project_date_{entry['id']}",
+                )
+                start_time_raw = _time_text_input(
+                    "Start time",
+                    default=services.time_from_datetime(start_dt),
+                    key=f"project_start_time_{entry['id']}",
+                )
+                running = end_dt is None
+                running = st.checkbox(
+                    "Entry in progress",
+                    value=running,
+                    key=f"project_running_{entry['id']}",
+                )
+                end_time_raw: Optional[str] = None
+                if not running:
+                    end_time_raw = _time_text_input(
+                        "End time",
+                        default=services.time_from_datetime(end_dt)
+                        or services.time_from_datetime(start_dt),
+                        key=f"project_end_time_{entry['id']}",
+                    )
+                submitted = st.form_submit_button("Update Entry")
+                if submitted:
+                    if not project_name_val.strip():
+                        st.warning("Project name is required.")
+                    else:
+                        try:
+                            start_time_val = services.parse_time_text(start_time_raw)
+                            end_time_val = (
+                                services.parse_time_text(end_time_raw)
+                                if not running
+                                else None
+                            )
+                        except ValueError:
+                            st.error("Time must be in HH:MM format.")
+                            st.stop()
+                        start_iso = services.combine_date_time(
+                            entry_date_val,
+                            start_time_val,
+                        )
+                        end_iso = (
+                            None
+                            if running
+                            else services.combine_date_time(entry_date_val, end_time_val)
+                        )
+                        services.update_project_entry(
+                            entry_id=entry["id"],
+                            project_name=project_name_val.strip(),
+                            category=category_val,
+                            start_time=start_iso,
+                            end_time=end_iso,
+                        )
+                        st.toast("Project entry updated")
+                        st.rerun()
+            if st.button(
+                "Delete Project Entry",
+                key=f"delete_project_entry_{entry['id']}",
+            ):
+                services.delete_project_entry(entry["id"])
+                st.toast("Project entry deleted")
+                st.rerun()
     else:
         st.info("No project entries recorded yet.")
 
