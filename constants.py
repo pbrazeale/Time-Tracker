@@ -12,4 +12,4 @@ CATEGORY_COLORS = [
 ]
 
 APP_TITLE = "Time Tracker"
-LOGO_PATH = "time_tracker_logo_300.jpg"
+LOGO_PATH = "time_tracker_animated.gif"
