@@ -10,6 +10,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import services
+
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
@@ -17,6 +19,11 @@ if str(CURRENT_DIR) not in sys.path:
 
 
 def _load_module(name: str, filename: str):
+    """Load a module from CURRENT_DIR.
+
+    Uses importlib to execute the file and caches it in sys.modules so
+    subsequent imports reuse the already-loaded module.
+    """
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.spec_from_file_location(name, CURRENT_DIR / filename)
@@ -48,12 +55,31 @@ services.init_db()
 
 
 def _time_text_input(
-    label: str, default: Optional[time] = None, *, key: Optional[str] = None
+    label: str,
+    default: Optional[time] = None,
+    *,
+    key: Optional[str] = None,
+    allow_blank: bool = False,
+    disabled: bool = False,
 ) -> str:
-    return st.text_input(label, value=services.format_time_value(default), key=key)
+    """Render a Streamlit text input for times.
 
+    Pre-fills the control with the HH:MM string returned by
+    services.format_time_value, defaulting to \"00:00\" when no time is given.
+    Set allow_blank to True to leave the field empty when no default is supplied.
+    """
+    if default is None and allow_blank:
+        value = ""
+    else:
+        value = services.format_time_value(default)
+    return st.text_input(label, value=value, key=key, disabled=disabled)
 
 def _get_date_range() -> tuple[date, date]:
+    """Return the date range selected for reporting.
+
+    Seeds the pickers to the current week derived from services.current_time
+    and clamps the result so the start date never exceeds the end date.
+    """
     end_date = services.current_time().date()
     days_since_sunday = (end_date.weekday() + 1) % 7
     start_date = end_date - timedelta(days=days_since_sunday)
@@ -71,6 +97,11 @@ def _get_date_range() -> tuple[date, date]:
 
 
 def render_tracker() -> None:
+    """Render the tracker view.
+
+    Provides start/stop day controls, project entry management, and a table of
+    today's entries while delegating persistence to the services layer.
+    """
     st.header("Daily Tracker")
     today = services.current_time().date()
     st.subheader(f"Today: {today.isoformat()}")
@@ -165,6 +196,11 @@ def render_tracker() -> None:
 
 
 def render_reports() -> None:
+    """Render the reporting view.
+
+    Collects the desired date range, fetches hour summaries via services, and
+    displays either charts or raw tables for session and category totals.
+    """
     st.header("Reports")
 
     if "reports_view_mode" not in st.session_state:
@@ -220,6 +256,11 @@ def render_reports() -> None:
 
 
 def render_admin() -> None:
+    """Render the admin dashboard.
+
+    Exposes services-backed forms to manage categories, individual work
+    sessions, and project entries.
+    """
     st.header("Admin Dashboard")
     st.write("Make manual adjustments to your data and manage categories.")
 
@@ -289,29 +330,40 @@ def render_admin() -> None:
                     default=services.time_from_datetime(start_dt),
                     key=f"session_start_time_{row['id']}",
                 )
-                running = end_dt is None
-                running = st.checkbox("Session in progress", value=running)
-                end_time_raw: Optional[str] = None
-                if not running:
-                    end_time_raw = _time_text_input(
-                        "End time",
-                        default=services.time_from_datetime(end_dt)
-                        or services.time_from_datetime(start_dt),
-                        key=f"session_end_time_{row['id']}",
-                    )
+                running_default = end_dt is None
+                running = st.checkbox(
+                    "Session in progress",
+                    value=running_default,
+                    key=f"session_running_{row['id']}",
+                )
+                end_time_raw = _time_text_input(
+                    "End time",
+                    default=services.time_from_datetime(end_dt),
+                    key=f"session_end_time_{row['id']}",
+                    allow_blank=True,
+                )
+
                 notes_val = st.text_area("Notes", value=row.get("notes") or "")
                 submitted = st.form_submit_button("Update Session")
                 if submitted:
                     try:
                         start_time_val = services.parse_time_text(start_time_raw)
-                        end_time_val = (
-                            services.parse_time_text(end_time_raw) if not running else None
-                        )
+                        end_time_val: Optional[time] = None
+                        if not running:
+                            end_time_input = end_time_raw.strip()
+                            if not end_time_input:
+                                st.warning("End time is required unless the session is marked in progress.")
+                                st.stop()
+                            end_time_val = services.parse_time_text(end_time_input)
                     except ValueError:
                         st.error("Time must be in HH:MM format.")
                         st.stop()
                     start_iso = services.combine_date_time(edit_date, start_time_val)
-                    end_iso = None if running else services.combine_date_time(edit_date, end_time_val)
+                    end_iso = (
+                        services.combine_date_time(edit_date, end_time_val)
+                        if end_time_val is not None
+                        else None
+                    )
                     services.update_session(
                         session_id=row["id"],
                         session_date=edit_date.isoformat(),
@@ -334,6 +386,106 @@ def render_admin() -> None:
     if entries:
         df_entries = pd.DataFrame(entries)
         st.dataframe(df_entries, use_container_width=True)
+        entry_map = {
+            f"#{row['id']} - {row['project_name']} ({row['category']}) @ "
+            f"{services.parse_iso(row['start_time']).strftime('%Y-%m-%d %H:%M') if row.get('start_time') else 'N/A'}": row
+            for row in entries
+        }
+        selected_entry_label = st.selectbox(
+            "Select project entry to edit",
+            [""] + list(entry_map.keys()),
+            key="project_entry_select",
+        )
+        if selected_entry_label:
+            entry = entry_map[selected_entry_label]
+            start_dt = services.parse_iso(entry["start_time"])
+            end_dt = services.parse_iso(entry["end_time"])
+            categories_for_edit = services.get_categories(include_inactive=True)
+            if entry["category"] not in categories_for_edit:
+                categories_for_edit = [entry["category"]] + [
+                    category
+                    for category in categories_for_edit
+                    if category != entry["category"]
+                ]
+            category_index = categories_for_edit.index(entry["category"])
+            with st.form(f"project_entry_edit_{entry['id']}"):
+                project_name_val = st.text_input(
+                    "Project name",
+                    value=entry["project_name"],
+                    key=f"project_name_{entry['id']}",
+                )
+                category_val = st.selectbox(
+                    "Category",
+                    categories_for_edit,
+                    index=category_index,
+                    key=f"project_category_{entry['id']}",
+                )
+                base_date = start_dt.date() if start_dt else services.current_time().date()
+                entry_date_val = st.date_input(
+                    "Entry date",
+                    value=base_date,
+                    key=f"project_date_{entry['id']}",
+                )
+                start_time_raw = _time_text_input(
+                    "Start time",
+                    default=services.time_from_datetime(start_dt),
+                    key=f"project_start_time_{entry['id']}",
+                )
+                running_default = end_dt is None
+                running = st.checkbox(
+                    "Entry in progress",
+                    value=running_default,
+                    key=f"project_running_{entry['id']}",
+                )
+                end_time_raw = _time_text_input(
+                    "End time",
+                    default=services.time_from_datetime(end_dt),
+                    key=f"project_end_time_{entry['id']}",
+                    allow_blank=True,
+                )
+
+                submitted = st.form_submit_button("Update Entry")
+                if submitted:
+                    if not project_name_val.strip():
+                        st.warning("Project name is required.")
+                    else:
+                        try:
+                            start_time_val = services.parse_time_text(start_time_raw)
+                            end_time_val: Optional[time] = None
+                            if not running:
+                                end_time_input = end_time_raw.strip()
+                                if not end_time_input:
+                                    st.warning("End time is required unless the entry is marked in progress.")
+                                    st.stop()
+                                end_time_val = services.parse_time_text(end_time_input)
+                        except ValueError:
+                            st.error("Time must be in HH:MM format.")
+                            st.stop()
+                        start_iso = services.combine_date_time(
+                            entry_date_val,
+                            start_time_val,
+                        )
+                        end_iso = (
+                            services.combine_date_time(entry_date_val, end_time_val)
+                            if end_time_val is not None
+                            else None
+                        )
+                        services.update_project_entry(
+                            entry_id=entry["id"],
+                            project_name=project_name_val.strip(),
+                            category=category_val,
+                            start_time=start_iso,
+                            end_time=end_iso,
+                        )
+                        st.toast("Project entry updated")
+                        st.rerun()
+            if st.button(
+                "Delete Project Entry",
+                key=f"delete_project_entry_{entry['id']}",
+            ):
+                services.delete_project_entry(entry["id"])
+                st.toast("Project entry deleted")
+                st.rerun()
     else:
         st.info("No project entries recorded yet.")
 
@@ -395,6 +547,8 @@ def render_admin() -> None:
 
 
 def main() -> None:
+    """Launch the Streamlit UI and route to the selected page renderer.
+    """
     st.title("Time Tracker")
     page = st.sidebar.radio("Navigate", ("Tracker", "Reports", "Admin"))
 

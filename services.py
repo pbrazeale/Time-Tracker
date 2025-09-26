@@ -141,6 +141,26 @@ def add_manual_project_entry(**kwargs) -> None:
     db.add_manual_project_entry(**kwargs)
 
 
+
+
+def update_project_entry(
+    entry_id: int,
+    project_name: str,
+    category: str,
+    start_time: str,
+    end_time: Optional[str],
+) -> None:
+    db.update_project_entry(
+        entry_id=entry_id,
+        project_name=project_name,
+        category=category,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+
+def delete_project_entry(entry_id: int) -> None:
+    db.delete_project_entry(entry_id)
 def list_project_entries_between(start_date: date, end_date: date) -> list[dict]:
     return db.entries_as_dicts(db.list_project_entries_between(start_date, end_date))
 
