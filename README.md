@@ -69,3 +69,54 @@ A self-hosted Streamlit application for capturing work sessions, tracking projec
 
 - Times are stored and displayed in America/Chicago (CST/CDT). Adjustments may be required if you operate across multiple time zones.
 - Back up `time_tracker.db` regularly to preserve your history.
+
+## Contributing (quick + kind)
+
+Want to help? Amazing. Here’s the shortest path to a good PR:
+
+1. **Fork → branch**
+
+   - Fork the repo; create a feature branch:
+     ```bash
+     git checkout -b feat/your-idea
+     ```
+
+2. **Dev setup** (clean room; reproducible)
+
+   - Python 3.11+; fresh venv; install deps:
+     ```bash
+     python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+     pip install -r requirements.txt
+     # if present:
+     pip install -r requirements-dev.txt
+     ```
+   - Run the app locally:
+     ```bash
+     streamlit run app.py
+     ```
+   - **Do not** commit your `time_tracker.db`; add to your `.gitignore`.
+
+3. **Style & sanity** (make it easy to review)
+
+   - Keep functions small; single responsibility.
+   - Type hints + docstrings (why it exists; what it returns).
+   - Name things clearly.
+
+4. **DB changes** (handle with care)
+
+   - Any schema change must be handled in `init_db()` (safe migrations; no data loss).
+   - Keep timestamps **timezone-aware** (America/Chicago; ISO strings).
+   - Backfill defaults for new columns (don’t break old installs).
+
+5. **UX consistency**
+
+   - Business rules stay in `services.py`; UI remains thin.
+   - Reuse existing helpers (`parse_time_text`, `combine_date_time`) instead of re-implementing.
+
+6. **Run checks** (before you push)
+
+   - Start/stop a session, edit in Admin, verify Reports (chart ↔ table show same numbers).
+
+7. **Open the PR**
+   - Clear title + 1–2 paragraph summary (what changed; why it matters).
+   - Include screenshots/gifs for UI changes; note any migration logic.
