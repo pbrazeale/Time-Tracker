@@ -7,6 +7,7 @@ from constants import (
     APP_TITLE,
     LIGHT_TEXT,
     LOGO_PATH,
+    PRIMARY_GREEN,
     PRIMARY_RED,
     ROYAL_PURPLE,
 )
@@ -16,6 +17,7 @@ THEME_STYLE = """
 <style>
 :root {{
     --primary-red: {primary_red};
+    --primary-green: {primary_green};
     --accent-blue: {accent_blue};
     --royal-purple: {royal_purple};
     --text-light: {light_text};
@@ -42,9 +44,30 @@ THEME_STYLE = """
     margin: 0.75rem 0 1.25rem;
     background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
 }}
+
+/* Tracker page: project entry buttons */
+div.stButton > button[title="Start project entry button"] {{
+    background-color: var(--primary-green) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-green) !important;
+}}
+div.stButton > button[title="Start project entry button"]:hover {{
+    background-color: #25682b !important;
+    border-color: #25682b !important;
+}}
+
+div.stButton > button[title="Stop project entry button"] {{
+    background-color: var(--primary-red) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-red) !important;
+}}
+div.stButton > button[title="Stop project entry button"]:hover {{
+    filter: brightness(0.95);
+}}
 </style>
 """.format(
     primary_red=PRIMARY_RED,
+    primary_green=PRIMARY_GREEN,
     accent_blue=ACCENT_BLUE,
     royal_purple=ROYAL_PURPLE,
     light_text=LIGHT_TEXT,
