@@ -6,49 +6,15 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
-import importlib.util
 import sys
 from pathlib import Path
-
-import services
-
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
-
-def _load_module(name: str, filename: str):
-    """Load a module from CURRENT_DIR.
-
-    Uses importlib to execute the file and caches it in sys.modules so
-    subsequent imports reuse the already-loaded module.
-    """
-    if name in sys.modules:
-        return sys.modules[name]
-    spec = importlib.util.spec_from_file_location(name, CURRENT_DIR / filename)
-    if not spec or not spec.loader:
-        raise ModuleNotFoundError(f"Cannot load module '{name}'")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-try:
-    import constants  # type: ignore
-except ModuleNotFoundError:
-    constants = _load_module("constants", "constants.py")
-
-try:
-    import services  # type: ignore
-except ModuleNotFoundError:
-    services = _load_module("services", "services.py")
-
-try:
-    import style  # type: ignore
-except ModuleNotFoundError:
-    style = _load_module("style", "style.py")
+import services
+import style
 
 style.apply_theme()
 services.init_db()

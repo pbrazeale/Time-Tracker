@@ -16,6 +16,8 @@ A self-hosted Streamlit application for capturing work sessions, tracking projec
 
 ## Getting Started
 
+### Run locally (Python)
+
 1. (Optional) create and activate a virtual environment.
    ```powershell
    # Create virtual enviroment
@@ -34,7 +36,33 @@ A self-hosted Streamlit application for capturing work sessions, tracking projec
    ```powershell
    streamlit run app.py
    ```
+4. Open the UI at `http://localhost:8501`.
    The SQLite database file (`time_tracker.db`) is created the first time the app runs.
+
+### Run locally (Docker)
+
+Option A: Docker Compose (recommended)
+```bash
+docker compose up --build
+```
+Open `http://localhost:8501`. Data is persisted in the `time_tracker_data` volume.
+
+Option B: Docker CLI
+```bash
+docker build -t time-tracker .
+docker run --rm -p 8501:8501 -v time_tracker_data:/data time-tracker
+```
+
+To use an existing database file, bind-mount it directly:
+```bash
+docker run --rm -p 8501:8501 -v "$PWD/time_tracker.db:/data/time_tracker.db" time-tracker
+```
+
+To migrate an existing `time_tracker.db` into the named volume:
+```bash
+docker run --rm -v time_tracker_data:/data -v "$PWD/time_tracker.db:/source.db" alpine \
+  sh -c "cp /source.db /data/time_tracker.db"
+```
 
 ## Using the App
 
@@ -67,8 +95,10 @@ A self-hosted Streamlit application for capturing work sessions, tracking projec
 
 ## Additional Notes
 
-- Times are stored and displayed in America/Chicago (CST/CDT). Adjustments may be required if you operate across multiple time zones.
-- Back up `time_tracker.db` regularly to preserve your history.
+- Times are stored and displayed in America/Chicago (CST/CDT) by default. Override with `TIME_TRACKER_TZ` if needed.
+- Database location is configurable via `TIME_TRACKER_DB_PATH`. Defaults to a local `time_tracker.db` when run outside Docker.
+- If you bind-mount a host directory to `/data`, ensure it is writable by the container user (or use a named volume).
+- Back up your database regularly to preserve your history.
 
 ## Contributing (quick + kind)
 

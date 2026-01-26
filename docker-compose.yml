@@ -1,0 +1,13 @@
+services:
+  time-tracker:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      TIME_TRACKER_DB_PATH: /data/time_tracker.db
+      TIME_TRACKER_TZ: America/Chicago
+    volumes:
+      - time_tracker_data:/data
+
+volumes:
+  time_tracker_data:
