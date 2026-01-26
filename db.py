@@ -3,15 +3,15 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, date
-from pathlib import Path
 from typing import Iterable, Iterator, Optional
 
 import sqlite3
-from zoneinfo import ZoneInfo
+
+from config import get_app_timezone, get_db_path
 
 
-DB_PATH = Path(__file__).resolve().parent / "time_tracker.db"
-CENTRAL_TZ = ZoneInfo("America/Chicago")
+DB_PATH = get_db_path()
+CENTRAL_TZ = get_app_timezone()
 
 
 @dataclass
