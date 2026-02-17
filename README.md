@@ -16,7 +16,7 @@ A self-hosted Streamlit application for capturing work sessions, tracking projec
 
 ## Getting Started
 
-### Run locally (Python)
+### Run locally (Python)1
 
 1. (Optional) create and activate a virtual environment.
    ```powershell
@@ -42,23 +42,28 @@ A self-hosted Streamlit application for capturing work sessions, tracking projec
 ### Run locally (Docker)
 
 Option A: Docker Compose (recommended)
+
 ```bash
 docker compose up --build
 ```
+
 Open `http://localhost:8501`. Data is persisted in the `time_tracker_data` volume.
 
 Option B: Docker CLI
+
 ```bash
 docker build -t time-tracker .
 docker run --rm -p 8501:8501 -v time_tracker_data:/data time-tracker
 ```
 
 To use an existing database file, bind-mount it directly:
+
 ```bash
 docker run --rm -p 8501:8501 -v "$PWD/time_tracker.db:/data/time_tracker.db" time-tracker
 ```
 
 To migrate an existing `time_tracker.db` into the named volume:
+
 ```bash
 docker run --rm -v time_tracker_data:/data -v "$PWD/time_tracker.db:/source.db" alpine \
   sh -c "cp /source.db /data/time_tracker.db"
@@ -105,14 +110,12 @@ docker run --rm -v time_tracker_data:/data -v "$PWD/time_tracker.db:/source.db" 
 Want to help? Amazing. Here’s the shortest path to a good PR:
 
 1. **Fork → branch**
-
    - Fork the repo; create a feature branch:
      ```bash
      git checkout -b feat/your-idea
      ```
 
 2. **Dev setup** (clean room; reproducible)
-
    - Python 3.11+; fresh venv; install deps:
      ```bash
      python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
@@ -127,24 +130,20 @@ Want to help? Amazing. Here’s the shortest path to a good PR:
    - **Do not** commit your `time_tracker.db`; add to your `.gitignore`.
 
 3. **Style & sanity** (make it easy to review)
-
    - Keep functions small; single responsibility.
    - Type hints + docstrings (why it exists; what it returns).
    - Name things clearly.
 
 4. **DB changes** (handle with care)
-
    - Any schema change must be handled in `init_db()` (safe migrations; no data loss).
    - Keep timestamps **timezone-aware** (America/Chicago; ISO strings).
    - Backfill defaults for new columns (don’t break old installs).
 
 5. **UX consistency**
-
    - Business rules stay in `services.py`; UI remains thin.
    - Reuse existing helpers (`parse_time_text`, `combine_date_time`) instead of re-implementing.
 
 6. **Run checks** (before you push)
-
    - Start/stop a session, edit in Admin, verify Reports (chart ↔ table show same numbers).
 
 7. **Open the PR**
